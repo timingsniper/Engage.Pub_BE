@@ -49,10 +49,10 @@ jobs:
       # 3. Run new container with env variables injected
       - name: docker run new container
         run: |
-          sudo docker run --name engagepub-prod --rm -d -p 80:5000 \
+          sudo docker run --name engagepub-prod -d -p 80:5000 \
           -e DB_HOST=${{ secrets.DB_HOST }} \
           -e DB_NAME=${{ secrets.DB_NAME }} \
-          -e DB_NAME=${{ secrets.DB_PASSWORD }} \
+          -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
           -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
           ${{ secrets.DOCKERHUB_USERNAME }}/engagepub-backend
 
