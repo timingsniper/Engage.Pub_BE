@@ -42,11 +42,15 @@ jobs:
       - name: docker pull
         run: sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/engagepub-backend
 
-      # 2. Stop currently running container
-      - name: docker stop container
-        run: sudo docker stop $(sudo docker ps -q) 2>/dev/null || true
+      # 2. Stop currently running container named engagepub-prod
+      - name: docker stop engagepub-prod container
+        run: sudo docker stop engagepub-prod || true
 
-      # 3. Run new container with env variables injected
+      # 3. Remove existing container named engagepub-prod
+      - name: docker remove engagepub-prod container
+        run: sudo docker rm engagepub-prod || true
+
+      # 4. Run new container with env variables injected
       - name: docker run new container
         run: |
           sudo docker run --name engagepub-prod --rm -d -p 80:5000 \
@@ -57,6 +61,6 @@ jobs:
           -e COOKIE_SECRET=${{ secrets.COOKIE_SECRET }} \
           ${{ secrets.DOCKERHUB_USERNAME }}/engagepub-backend
 
-      # 4. Clean up old image
+      # 5. Clean up old image
       - name: delete old docker image
         run: sudo docker system prune -f
