@@ -54,6 +54,7 @@ jobs:
           -e DB_NAME=${{ secrets.DB_NAME }} \
           -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
           -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
+          -e COOKIE_SECRET=${{ secrets.COOKIE_SECRET }} \
           ${{ secrets.DOCKERHUB_USERNAME }}/engagepub-backend
 
       # 4. Clean up old image
