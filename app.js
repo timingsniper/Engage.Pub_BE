@@ -1,11 +1,20 @@
 const express = require("express");
 const path = require("path");
-const dotenv = require('dotenv');
+const dotenv = require("dotenv");
+const session = require('express-session');
+const passport = require('passport');
 const cookieParser = require("cookie-parser");
 const logger = require("morgan");
+const cors = require("cors");
 const db = require("./models");
-dotenv.config();
+const passportConfig = require('./passport');
 
+
+// Router Setup
+const indexRouter = require("./routes/index");
+const userRouter = require("./routes/user");
+
+dotenv.config();
 const app = express();
 
 // DB Connection
@@ -14,20 +23,30 @@ db.sequelize.sync().then(() => {
 });
 
 // Express Setup
+passportConfig();
 app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, "public")));
-
-// Router Setup
-const indexRouter = require("./routes/index");
-const userRouter = require("./routes/user");
+app.use(cookieParser(process.env.COOKIE_SECRET));
+// app.use(express.static(path.join(__dirname, "public")));
+app.use(session({
+  saveUninitialized: false,
+  resave: false,
+  secret: process.env.COOKIE_SECRET,
+}));
+app.use(
+  cors({
+    origin: true,
+  })
+);
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Routes
 app.use("/", indexRouter);
 app.use("/user", userRouter);
 
+// Open server at port 5000
 app.listen(5000, () => {
   console.log("서버 실행 중!");
 });
