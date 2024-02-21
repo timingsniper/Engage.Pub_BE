@@ -3,9 +3,30 @@ const bcrypt = require("bcrypt");
 var router = express.Router();
 const passport = require("passport");
 const { User } = require("../models");
+const { isLoggedIn, isNotLoggedIn } = require("./middlewares");
+
+// Get user info
+router.get("/", async (req, res, next) => {
+  try {
+    if (req.user) {
+      const userInfo = await User.findOne({
+        where: { id: req.user.id },
+        attributes: {
+          exclude: ["password"],
+        },
+      });
+      res.status(200).json(userInfo);
+    } else {
+      res.status(200).json(null);
+    }
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
 
 // Signup
-router.post("/", async (req, res, next) => {
+router.post("/", isNotLoggedIn, async (req, res, next) => {
   try {
     // Look for duplicate email
     const emailCheck = await User.findOne({
@@ -30,7 +51,7 @@ router.post("/", async (req, res, next) => {
 });
 
 // Login
-router.post("/login", (req, res, next) => {
+router.post("/login", isNotLoggedIn, (req, res, next) => {
   passport.authenticate("local", (err, user, info) => {
     if (err) {
       console.log(err);
@@ -44,9 +65,22 @@ router.post("/login", (req, res, next) => {
         console.log(loginErr);
         return next(loginErr);
       }
-      return res.status(200).json(user);
+      const userInfo = await User.findOne({
+        where: { id: user.id },
+        attributes: {
+          exclude: ["password"],
+        },
+      });
+      return res.status(200).json(userInfo);
     });
   })(req, res, next);
+});
+
+// Logout
+router.post("/logout", isLoggedIn, (req, res) => {
+  req.logout();
+  req.session.destroy();
+  res.status(200).send("Logout Succeeded");
 });
 
 module.exports = router;
