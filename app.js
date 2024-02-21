@@ -28,7 +28,6 @@ app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser(process.env.COOKIE_SECRET));
-// app.use(express.static(path.join(__dirname, "public")));
 app.use(session({
   saveUninitialized: false,
   resave: false,
@@ -37,6 +36,7 @@ app.use(session({
 app.use(
   cors({
     origin: true,
+    credentials: true,
   })
 );
 app.use(passport.initialize());
