@@ -32,9 +32,11 @@ app.use(session({
   saveUninitialized: false,
   resave: false,
   secret: process.env.COOKIE_SECRET,
+  proxy: true,
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'prod',
+    maxAge: 1000 * 60 * 60 * 5,
   },
 }));
 app.use(
@@ -53,6 +55,7 @@ app.use("/user", userRouter);
 // Open server at port 5000
 app.listen(5000, () => {
   console.log("서버 실행 중!");
+  console.log(`Current Environment: ${process.env.NODE_ENV}`)
 });
 
 module.exports = app;
