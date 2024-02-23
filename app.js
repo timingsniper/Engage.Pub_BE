@@ -32,6 +32,10 @@ app.use(session({
   saveUninitialized: false,
   resave: false,
   secret: process.env.COOKIE_SECRET,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'prod',
+  },
 }));
 app.use(
   cors({

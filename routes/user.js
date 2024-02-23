@@ -65,6 +65,7 @@ router.post("/login", isNotLoggedIn, (req, res, next) => {
         console.log(loginErr);
         return next(loginErr);
       }
+      // Exclude password from the user info returned
       const userInfo = await User.findOne({
         where: { id: user.id },
         attributes: {
