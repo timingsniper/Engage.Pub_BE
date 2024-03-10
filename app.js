@@ -13,6 +13,7 @@ const passportConfig = require('./passport');
 // Router Setup
 const indexRouter = require("./routes/index");
 const userRouter = require("./routes/user");
+const conversationRouter = require('./routes/conversation');
 
 dotenv.config();
 const app = express();
@@ -45,6 +46,7 @@ app.use(passport.session());
 // Routes
 app.use("/", indexRouter);
 app.use("/user", userRouter);
+app.use("/conversation", conversationRouter);
 
 // Open server at port 5000
 app.listen(5000, () => {
