@@ -35,7 +35,8 @@ router.get("/:scenarioId", isLoggedIn, async (req, res) => {
 // Talk to AI in selected scenario
 router.post("/:scenarioId", isLoggedIn, async (req, res) => {
   const { scenarioId } = req.params;
-  const { userId, message } = req.body;
+  const userId = req.user.id;
+  const { message } = req.body;
   try {
     // Retrieve or start a new conversation context
     let conversation = await Conversation.findOne({
