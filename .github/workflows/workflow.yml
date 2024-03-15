@@ -60,7 +60,7 @@ jobs:
           -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
           -e COOKIE_SECRET=${{ secrets.COOKIE_SECRET }} \
           -e NODE_ENV=${{ secrets.NODE_ENV }} \
-          -e OPENAI_API_KEY
+          -e OPENAI_API_KEY \
           ${{ secrets.DOCKERHUB_USERNAME }}/engagepub-backend
 
       # 5. Clean up old image
