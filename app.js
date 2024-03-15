@@ -13,6 +13,7 @@ const passportConfig = require('./passport');
 // Router Setup
 const indexRouter = require("./routes/index");
 const userRouter = require("./routes/user");
+const conversationRouter = require('./routes/conversation');
 
 dotenv.config();
 const app = express();
@@ -32,6 +33,13 @@ app.use(session({
   saveUninitialized: false,
   resave: false,
   secret: process.env.COOKIE_SECRET,
+  proxy: true,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 1000 * 60 * 60 * 5,
+    domain: process.env.NODE_ENV === 'production' && '.engage.pub'
+  },
 }));
 app.use(
   cors({
@@ -45,10 +53,13 @@ app.use(passport.session());
 // Routes
 app.use("/", indexRouter);
 app.use("/user", userRouter);
+app.use("/conversation", conversationRouter);
 
 // Open server at port 5000
 app.listen(5000, () => {
   console.log("서버 실행 중!");
+  console.log(`Is Production: ${process.env.NODE_ENV === 'production'}`)
+  console.log(`Current Environment: ${process.env.NODE_ENV}`)
 });
 
 module.exports = app;

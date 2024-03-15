@@ -5,7 +5,9 @@ const db = {};
 
 const sequelize = new Sequelize(config.database, config.username, config.password, config);
 
+// Table Initialization
 db.User = require('./user')(sequelize, Sequelize);
+db.Conversation = require('./conversation')(sequelize, Sequelize);
 
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
