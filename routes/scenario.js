@@ -17,7 +17,7 @@ router.get("/:pageId", async (req, res) => {
     const totalScenarios = await Scenario.count();
     const totalPages = Math.ceil(totalScenarios / limit);
     let scenarios = await Scenario.findAll({
-      attributes: ["id", "authorId", "title", "settings", "createdAt"],
+      attributes: ["id", "authorId", "title", "settings", "createdAt", "imgSource"],
       limit: limit,
       offset: offset,
       order: [["createdAt", "DESC"]],
