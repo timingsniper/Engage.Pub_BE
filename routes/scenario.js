@@ -33,7 +33,7 @@ router.get("/:pageId", async (req, res) => {
 });
 
 // Returns a single scenario detail
-router.get("/:scenarioId", isLoggedIn, async (req, res) => {
+router.get("/detail/:scenarioId", isLoggedIn, async (req, res) => {
   const { scenarioId } = req.params;
   try {
     let scenario = await Scenario.findOne({
