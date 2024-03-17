@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const bodyParser = require("body-parser");
 const { OpenAI } = require("openai");
-const { Conversation } = require("../models");
+const { Conversation, Scenario } = require("../models");
 const { isLoggedIn } = require("./middlewares");
 
 require("dotenv").config();
