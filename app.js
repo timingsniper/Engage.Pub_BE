@@ -14,6 +14,7 @@ const passportConfig = require('./passport');
 const indexRouter = require("./routes/index");
 const userRouter = require("./routes/user");
 const conversationRouter = require('./routes/conversation');
+const scenarioRouter = require('./routes/scenario');
 
 dotenv.config();
 const app = express();
@@ -54,6 +55,7 @@ app.use(passport.session());
 app.use("/", indexRouter);
 app.use("/user", userRouter);
 app.use("/conversation", conversationRouter);
+app.use("/scenario", scenarioRouter);
 
 // Open server at port 5000
 app.listen(5000, () => {
