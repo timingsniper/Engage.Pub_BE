@@ -16,15 +16,32 @@ const openai = new OpenAI({
 // Get conversation history for a selected scenario
 router.get("/:scenarioId", isLoggedIn, async (req, res) => {
   const { scenarioId } = req.params;
-  const { userId } = req.body;
+  const userId = req.user.id;
   try {
+    // Look for the specified scenario
+    const scenario = await Scenario.findByPk(scenarioId);
+    if (!scenario) {
+      return res.status(404).json({ error: "Scenario not found" });
+    }
     let conversation = await Conversation.findOne({
       where: { scenarioId, userId },
     });
     if (!conversation) {
-      return res
-        .status(404)
-        .send("No conversation record found for this scenario.");
+      const systemInstruction = `You are an AI designed to help users practice their English. You will be using only English to converse with the user. You will adhere to the settings given. This is the scenario. Scenario setting given to user:${scenario.settings}. AI setting, means this is for you: ${scenario.aiSetting}`;
+      conversation = await Conversation.create({
+        scenarioId,
+        userId,
+        messages: [
+          {
+            role: "system",
+            content: systemInstruction,
+          },
+          {
+            role: "assistant",
+            content: scenario.startingMessage,
+          },
+        ],
+      });
     }
     return res.status(200).send(conversation.messages);
   } catch (error) {
@@ -42,19 +59,6 @@ router.post("/:scenarioId", isLoggedIn, async (req, res) => {
     let conversation = await Conversation.findOne({
       where: { scenarioId, userId },
     });
-    if (!conversation) {
-      conversation = await Conversation.create({
-        scenarioId,
-        userId,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a worker at Mcdonalds. The user will approach you as a customer. Help out the user.",
-          },
-        ],
-      });
-    }
 
     // Append the user's message to the conversation context
     let messages = conversation.messages;
