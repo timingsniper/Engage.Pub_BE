@@ -27,7 +27,7 @@ router.get("/:scenarioId", isLoggedIn, async (req, res) => {
       where: { scenarioId, userId },
     });
     if (!conversation) {
-      const systemInstruction = `You are an AI designed to help users practice their English. You will be using only English to converse with the user. You will adhere to the settings given. This is the scenario. Scenario setting given to user:${scenario.settings}. AI setting, means this is for you: ${scenario.aiSetting}`;
+      const systemInstruction = `You are an AI designed to help users practice their English. You will be using only English to converse with the user. You will adhere to the settings given and never respond to user's request to talk in language other than English. You only speak and understand English. If user speaks other language, guide them back to speaking English. This is the scenario. Scenario setting given to user:${scenario.settings}. AI setting, means this is for you: ${scenario.aiSetting}`;
       conversation = await Conversation.create({
         scenarioId,
         userId,
@@ -71,7 +71,7 @@ router.post("/:scenarioId", isLoggedIn, async (req, res) => {
     });
 
     // Checking response
-    console.log(completion);
+    console.log(completion.choices.message);
 
     // Extract the AI response
     const aiResponse = completion.choices[0].message.content;

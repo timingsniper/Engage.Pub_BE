@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const bodyParser = require("body-parser");
-const { Scenario } = require("../models");
+const { Scenario, User } = require("../models");
 const { isLoggedIn } = require("./middlewares");
 
 require("dotenv").config();
@@ -17,10 +17,17 @@ router.get("/:pageId", async (req, res) => {
     const totalScenarios = await Scenario.count();
     const totalPages = Math.ceil(totalScenarios / limit);
     let scenarios = await Scenario.findAll({
-      attributes: ["id", "authorId", "title", "settings", "createdAt", "imgSource"],
+      attributes: [
+        "id",
+        "authorId",
+        "title",
+        "settings",
+        "createdAt",
+        "imgSource",
+      ],
       limit: limit,
       offset: offset,
-      order: [["createdAt", "DESC"]],
+      order: [["id", "DESC"]],
     });
     const nextPage = pageId < totalPages ? parseInt(pageId) + 1 : null;
     return res.status(200).json({
@@ -47,6 +54,55 @@ router.get("/detail/:scenarioId", isLoggedIn, async (req, res) => {
     });
   } catch (error) {
     console.log(error);
+  }
+});
+
+// Create a new scenario
+router.post("/", isLoggedIn, async (req, res) => {
+  const {
+    authorEmail,
+    title,
+    settings,
+    aiSetting,
+    mission,
+    startingMessage,
+    // imgSource,
+  } = req.body;
+  try {
+    // Validate input
+    if (
+      !authorEmail ||
+      !title ||
+      !settings ||
+      !aiSetting ||
+      !mission ||
+      !startingMessage
+      // || !imgSource
+    ) {
+      return res.status(400).json({ message: "All fields must be filled" });
+    }
+    const authorInfo = await User.findOne({
+      where: { email: authorEmail },
+    });
+    const authorId = authorInfo.id;
+    // Create new scenario
+    const scenario = await Scenario.create({
+      authorId,
+      title,
+      settings,
+      aiSetting,
+      mission,
+      startingMessage,
+      imgSource: 'https://picsum.photos/200/300',
+    });
+
+    return res.status(201).json({
+      message: "Scenario created successfully",
+      scenario,
+    });
+  } catch (error) {
+    console.error("Failed to create scenario:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 
