@@ -4,14 +4,26 @@ const bodyParser = require("body-parser");
 const { OpenAI } = require("openai");
 const { Scenario, User } = require("../models");
 const { isLoggedIn } = require("./middlewares");
+const AWS = require("aws-sdk");
+const axios = require('axios');
+const sharp = require('sharp');
+const multer = require("multer");
 
 require("dotenv").config();
 const app = express();
 app.use(bodyParser.json());
 
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
+});
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+const upload = multer();
 
 // Returns all scenario, login not required
 router.get("/:pageId", async (req, res) => {
@@ -72,7 +84,7 @@ router.post("/imageGen", isLoggedIn, async (req, res) => {
       n: 1,
       size: "1024x1024",
     });
-    console.log(response.data[0].url)
+    console.log(response.data[0].url);
     return res.status(200).send(response.data[0].url);
   } catch (error) {
     console.log(error);
@@ -80,7 +92,7 @@ router.post("/imageGen", isLoggedIn, async (req, res) => {
 });
 
 // Create a new scenario
-router.post("/", isLoggedIn, async (req, res) => {
+router.post("/", isLoggedIn, upload.none(), async (req, res) => {
   const {
     authorEmail,
     title,
@@ -88,7 +100,7 @@ router.post("/", isLoggedIn, async (req, res) => {
     aiSetting,
     mission,
     startingMessage,
-    // imgSource,
+    imageUrl,
   } = req.body;
   try {
     // Validate input
@@ -98,8 +110,8 @@ router.post("/", isLoggedIn, async (req, res) => {
       !settings ||
       !aiSetting ||
       !mission ||
-      !startingMessage
-      // || !imgSource
+      !startingMessage ||
+      !imageUrl
     ) {
       return res.status(400).json({ message: "All fields must be filled" });
     }
@@ -107,7 +119,38 @@ router.post("/", isLoggedIn, async (req, res) => {
       where: { email: authorEmail },
     });
     const authorId = authorInfo.id;
+
+    // Download image from URL
+    console.log('Downloading image...');
+    const response = await axios({
+      method: "GET",
+      url: imageUrl,
+      responseType: "arraybuffer",
+    });
+    const imageBuffer = Buffer.from(response.data, "binary");
+
+    // Resize and compress the image
+    console.log('Compressing image...');
+    const processedImage = await sharp(imageBuffer)
+      .resize(300, 300)
+      .jpeg({ quality: 90 })
+      .toBuffer();
+
+    // Upload to S3
+    console.log('Uploading to S3...');
+    const s3Response = await s3
+      .upload({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: `scenarios/${Date.now()}_compressed.jpg`, // Using timestamp to create a unique file name
+        Body: processedImage,
+        ContentType: "image/jpeg",
+      })
+      .promise();
+
+    const imgSource = s3Response.Location;
+
     // Create new scenario
+    console.log('Creating scenario...');
     const scenario = await Scenario.create({
       authorId,
       title,
@@ -115,7 +158,7 @@ router.post("/", isLoggedIn, async (req, res) => {
       aiSetting,
       mission,
       startingMessage,
-      imgSource: "https://picsum.photos/200/300",
+      imgSource,
     });
 
     return res.status(201).json({
