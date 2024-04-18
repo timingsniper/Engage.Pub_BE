@@ -1,12 +1,17 @@
 const express = require("express");
 const router = express.Router();
 const bodyParser = require("body-parser");
+const { OpenAI } = require("openai");
 const { Scenario, User } = require("../models");
 const { isLoggedIn } = require("./middlewares");
 
 require("dotenv").config();
 const app = express();
 app.use(bodyParser.json());
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 // Returns all scenario, login not required
 router.get("/:pageId", async (req, res) => {
@@ -57,6 +62,23 @@ router.get("/detail/:scenarioId", isLoggedIn, async (req, res) => {
   }
 });
 
+router.post("/imageGen", isLoggedIn, async (req, res) => {
+  const { settings, aiSetting } = req.body;
+  const imagePrompt = `Generate an descriptive image for the scenario given. Setting for the scenario:${settings}. AI setting: ${aiSetting}`;
+  try {
+    const response = await openai.images.generate({
+      model: "dall-e-3",
+      prompt: imagePrompt,
+      n: 1,
+      size: "1024x1024",
+    });
+    console.log(response.data[0].url)
+    return res.status(200).send(response.data[0].url);
+  } catch (error) {
+    console.log(error);
+  }
+});
+
 // Create a new scenario
 router.post("/", isLoggedIn, async (req, res) => {
   const {
@@ -93,7 +115,7 @@ router.post("/", isLoggedIn, async (req, res) => {
       aiSetting,
       mission,
       startingMessage,
-      imgSource: 'https://picsum.photos/200/300',
+      imgSource: "https://picsum.photos/200/300",
     });
 
     return res.status(201).json({
