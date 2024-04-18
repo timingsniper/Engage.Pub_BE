@@ -43,12 +43,12 @@ jobs:
         run: sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/engagepub-backend
 
       # 2. Stop currently running container named engagepub-prod
-      - name: docker stop engagepub-prod container
-        run: sudo docker stop engagepub-prod || true
+      # - name: docker stop engagepub-prod container
+      #  run: sudo docker stop engagepub-prod || true
 
       # 3. Remove existing container named engagepub-prod
-      - name: docker remove engagepub-prod container
-        run: sudo docker rm engagepub-prod || true
+      #- name: docker remove engagepub-prod container
+      #  run: sudo docker rm engagepub-prod || true
 
       # 4. Run new container with env variables injected
       - name: docker run new container
