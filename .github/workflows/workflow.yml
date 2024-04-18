@@ -53,13 +53,17 @@ jobs:
       # 4. Run new container with env variables injected
       - name: docker run new container
         run: |
-          sudo docker run --name engagepub-prod --rm -d -p 80:5000 \
+          sudo docker run --name engagepub-prod -d -p 80:5000 \
           -e DB_HOST=${{ secrets.DB_HOST }} \
           -e DB_NAME=${{ secrets.DB_NAME }} \
           -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
           -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
           -e COOKIE_SECRET=${{ secrets.COOKIE_SECRET }} \
           -e NODE_ENV=${{ secrets.NODE_ENV }} \
+          -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+          -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+          -e AWS_REGION=${{ secrets.AWS_REGION }} \
+          -e S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }} \
           -e OPENAI_API_KEY \
           ${{ secrets.DOCKERHUB_USERNAME }}/engagepub-backend
 
