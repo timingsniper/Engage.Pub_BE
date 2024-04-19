@@ -26,6 +26,7 @@
     "passport-local": "^1.0.0",
     "sequelize": "^6.37.1",
     "sequelize-cli": "^6.6.2",
-    "sharp": "^0.33.3"
+    "sharp": "^0.33.3",
+    "translate": "^3.0.0"
   }
 }
