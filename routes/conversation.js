@@ -54,41 +54,80 @@ router.post("/:scenarioId", isLoggedIn, async (req, res) => {
   const { scenarioId } = req.params;
   const userId = req.user.id;
   const { message } = req.body;
+  const translateModule = await import('translate');
+  const translate = translateModule.default;
+
   try {
     // Retrieve or start a new conversation context
     let conversation = await Conversation.findOne({
       where: { scenarioId, userId },
     });
 
-    // Append the user's message to the conversation context
-    let messages = conversation.messages;
-    messages.push({ role: "user", content: message });
+    let internalMessages = conversation.messages || [];
+    internalMessages.push({ role: "user", content: message });
+    let apiMessages = internalMessages.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
 
-    // Call GPT for response
-    const completion = await openai.chat.completions.create({
+    // Retrieve feedback of user's message
+    const feedbackPromise = openai.chat.completions.create({
       model: "gpt-3.5-turbo",
-      messages,
+      messages: [
+        {
+          role: "system",
+          content:
+            "你是英语学习网站的AI。用中文, 如果用户的英语表达在语法和词语方面上有错误, 给出修改后的英语句子并指出错误之处。If the user's message is perfect, just return '完美'. 记得用中文回答, 限制在100字内回答。",
+        },
+        { role: "user", content: message },
+      ],
     });
 
-    // Checking response
-    console.log(completion.choices.message);
+    // Call GPT for response using API messages array
+    const aiResponsePromise = openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: apiMessages,
+    });
+
+    // Execute both OpenAI models in parallel
+    const [feedbackCompletion, completion] = await Promise.all([
+      feedbackPromise,
+      aiResponsePromise,
+    ]);
+
+    // Extract feedback
+    const feedbackResponse = feedbackCompletion.choices[0].message.content;
+    const feedback = feedbackResponse.includes("完美")
+      ? "完美！"
+      : feedbackResponse;
 
     // Extract the AI response
     const aiResponse = completion.choices[0].message.content;
 
-    // Append AI's response to the conversation context
-    messages.push({ role: "assistant", content: aiResponse });
+    // Get response translation
+    const translation = await translate(aiResponse, { from: 'en', to: 'zh' });
+
+    // Append AI's response to the internal messages array
+    internalMessages.push({ role: "assistant", content: aiResponse, translation: translation });
+
+    // Add feedback to the last user message in internal messages for storage
+    internalMessages[internalMessages.length - 2].feedback = feedback; // Assuming the second last message is always the user's
 
     // Update conversation with new messages and save it
-    conversation.messages = messages;
+    conversation.messages = internalMessages;
     await conversation.save();
 
-    // Return the response to the frontend
+    // Return the response and feedback to the frontend
     return res.status(200).json({
       response: aiResponse,
+      translation: translation,
+      feedback: feedback,
     });
   } catch (error) {
-    console.log(error);
+    console.error("Error processing the AI or feedback response:", error);
+    return res
+      .status(500)
+      .json({ error: "An error occurred while processing your request." });
   }
 });
 
