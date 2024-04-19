@@ -5,8 +5,8 @@ const { OpenAI } = require("openai");
 const { Scenario, User } = require("../models");
 const { isLoggedIn } = require("./middlewares");
 const AWS = require("aws-sdk");
-const axios = require('axios');
-const sharp = require('sharp');
+const axios = require("axios");
+const sharp = require("sharp");
 const multer = require("multer");
 
 require("dotenv").config();
@@ -45,6 +45,8 @@ router.get("/:pageId", async (req, res) => {
       limit: limit,
       offset: offset,
       order: [["id", "DESC"]],
+      limit: 100,
+      offset: 0,
     });
     const nextPage = pageId < totalPages ? parseInt(pageId) + 1 : null;
     return res.status(200).json({
@@ -53,6 +55,26 @@ router.get("/:pageId", async (req, res) => {
     });
   } catch (error) {
     console.log(error);
+  }
+});
+
+router.get("/myScenarios", isLoggedIn, async (req, res) => {
+  const userId = req.user.id;
+  console.log(userId);
+  try {
+    let scenarios = await Scenario.findAll({
+      where: { authorId: userId },
+
+      order: [["id", "DESC"]],
+    });
+    return res.status(200).json({
+      scenarios,
+    });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while fetching scenarios." });
   }
 });
 
@@ -121,7 +143,7 @@ router.post("/", isLoggedIn, upload.none(), async (req, res) => {
     const authorId = authorInfo.id;
 
     // Download image from URL
-    console.log('Downloading image...');
+    console.log("Downloading image...");
     const response = await axios({
       method: "GET",
       url: imageUrl,
@@ -130,14 +152,14 @@ router.post("/", isLoggedIn, upload.none(), async (req, res) => {
     const imageBuffer = Buffer.from(response.data, "binary");
 
     // Resize and compress the image
-    console.log('Compressing image...');
+    console.log("Compressing image...");
     const processedImage = await sharp(imageBuffer)
       .resize(300, 300)
       .jpeg({ quality: 90 })
       .toBuffer();
 
     // Upload to S3
-    console.log('Uploading to S3...');
+    console.log("Uploading to S3...");
     const s3Response = await s3
       .upload({
         Bucket: process.env.S3_BUCKET_NAME,
@@ -150,7 +172,7 @@ router.post("/", isLoggedIn, upload.none(), async (req, res) => {
     const imgSource = s3Response.Location;
 
     // Create new scenario
-    console.log('Creating scenario...');
+    console.log("Creating scenario...");
     const scenario = await Scenario.create({
       authorId,
       title,
