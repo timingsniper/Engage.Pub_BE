@@ -265,4 +265,25 @@ router.put("/:scenarioId", isLoggedIn, upload.none(), async (req, res) => {
   }
 });
 
+// Delete an existing scenario
+router.delete("/:scenarioId", isLoggedIn, async (req, res) => {
+  const { scenarioId } = req.params;
+
+  try {
+    // Find the scenario
+    const scenario = await Scenario.findByPk(scenarioId);
+    if (!scenario) {
+      return res.status(404).json({ message: "Scenario not found" });
+    }
+
+    // Delete the scenario
+    await scenario.destroy();
+
+    return res.status(200).json({ message: "Scenario deleted successfully" });
+  } catch (error) {
+    console.error("Failed to delete scenario:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 module.exports = router;
