@@ -25,6 +25,25 @@ const openai = new OpenAI({
 
 const upload = multer();
 
+router.get("/myScenarios", isLoggedIn, async (req, res) => {
+  const userId = req.user.id;
+  console.log(userId);
+  try {
+    let scenarios = await Scenario.findAll({
+      where: { authorId: userId },
+      order: [["id", "DESC"]],
+    });
+    return res.status(200).json({
+      scenarios,
+    });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while fetching scenarios." });
+  }
+});
+
 // Returns all scenario, login not required
 router.get("/:pageId", async (req, res) => {
   let { pageId } = req.params;
@@ -55,26 +74,6 @@ router.get("/:pageId", async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-  }
-});
-
-router.get("/myScenarios", isLoggedIn, async (req, res) => {
-  const userId = req.user.id;
-  console.log(userId);
-  try {
-    let scenarios = await Scenario.findAll({
-      where: { authorId: userId },
-
-      order: [["id", "DESC"]],
-    });
-    return res.status(200).json({
-      scenarios,
-    });
-  } catch (error) {
-    console.error(error);
-    res
-      .status(500)
-      .json({ error: "An error occurred while fetching scenarios." });
   }
 });
 
