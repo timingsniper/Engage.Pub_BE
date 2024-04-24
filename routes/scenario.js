@@ -192,4 +192,77 @@ router.post("/", isLoggedIn, upload.none(), async (req, res) => {
   }
 });
 
+// Update an existing scenario
+router.put("/:scenarioId", isLoggedIn, upload.none(), async (req, res) => {
+  const { scenarioId } = req.params;
+  const { title, settings, aiSetting, mission, startingMessage, imageUrl } =
+    req.body;
+
+  try {
+    // Validate input
+    if (
+      !title ||
+      !settings ||
+      !aiSetting ||
+      !mission ||
+      !startingMessage ||
+      !imageUrl
+    ) {
+      return res.status(400).json({ message: "All fields must be filled" });
+    }
+
+    // Find the scenario
+    const scenario = await Scenario.findByPk(scenarioId);
+    if (!scenario) {
+      return res.status(404).json({ message: "Scenario not found" });
+    }
+
+    // Download and process image if changed
+    if (imageUrl !== scenario.imgSource) {
+      console.log("Downloading and processing image...");
+      const response = await axios({
+        method: "GET",
+        url: imageUrl,
+        responseType: "arraybuffer",
+      });
+      const imageBuffer = Buffer.from(response.data, "binary");
+
+      console.log("Compressing image...");
+      const processedImage = await sharp(imageBuffer)
+        .resize(300, 300)
+        .jpeg({ quality: 90 })
+        .toBuffer();
+
+      console.log("Uploading to S3...");
+      const s3Response = await s3
+        .upload({
+          Bucket: process.env.S3_BUCKET_NAME,
+          Key: `scenarios/${Date.now()}_compressed.jpg`, // Unique file name
+          Body: processedImage,
+          ContentType: "image/jpeg",
+        })
+        .promise();
+
+      scenario.imgSource = s3Response.Location;
+    }
+
+    // Update scenario
+    scenario.title = title;
+    scenario.settings = settings;
+    scenario.aiSetting = aiSetting;
+    scenario.mission = mission;
+    scenario.startingMessage = startingMessage;
+
+    await scenario.save();
+
+    return res.status(200).json({
+      message: "Scenario updated successfully",
+      scenario,
+    });
+  } catch (error) {
+    console.error("Failed to update scenario:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 module.exports = router;
