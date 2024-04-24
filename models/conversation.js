@@ -32,6 +32,11 @@ module.exports = (sequelize, DataTypes) => {
       collate: "utf8_general_ci",
     }
   );
-  Conversation.associate = (db) => {};
+  Conversation.associate = (models) => {
+    Conversation.belongsTo(models.Scenario, {
+      foreignKey: "scenarioId",
+      as: "Scenario",
+    });
+  };
   return Conversation;
 };

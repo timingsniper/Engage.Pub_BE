@@ -13,6 +13,45 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+router.get("/myConversations", isLoggedIn, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    let conversations = await Conversation.findAll({
+      where: { userId: userId },
+      include: [
+        {
+          model: Scenario,
+          as: "Scenario",
+          attributes: ["title", "imgSource"],
+          required: true
+        },
+      ],
+      order: [["id", "DESC"]],
+    });
+
+    return res.status(200).json({
+      conversations: conversations.map((conversation) => {
+        return {
+          id: conversation.id,
+          scenarioId: conversation.scenarioId,
+          goalMet: conversation.goalMet,
+          scenarioTitle: conversation.Scenario
+            ? conversation.Scenario.title
+            : "Scenario Deleted",
+          scenarioImgSource: conversation.Scenario
+            ? conversation.Scenario.imgSource
+            : null,
+        };
+      }),
+    });
+  } catch (error) {
+    console.error("Error fetching conversations:", error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while fetching conversations." });
+  }
+});
+
 // Get conversation history for a selected scenario
 router.get("/:scenarioId", isLoggedIn, async (req, res) => {
   const { scenarioId } = req.params;
@@ -54,7 +93,7 @@ router.post("/:scenarioId", isLoggedIn, async (req, res) => {
   const { scenarioId } = req.params;
   const userId = req.user.id;
   const { message } = req.body;
-  const translateModule = await import('translate');
+  const translateModule = await import("translate");
   const translate = translateModule.default;
 
   try {
@@ -105,10 +144,14 @@ router.post("/:scenarioId", isLoggedIn, async (req, res) => {
     const aiResponse = completion.choices[0].message.content;
 
     // Get response translation
-    const translation = await translate(aiResponse, { from: 'en', to: 'zh' });
+    const translation = await translate(aiResponse, { from: "en", to: "zh" });
 
     // Append AI's response to the internal messages array
-    internalMessages.push({ role: "assistant", content: aiResponse, translation: translation });
+    internalMessages.push({
+      role: "assistant",
+      content: aiResponse,
+      translation: translation,
+    });
 
     // Add feedback to the last user message in internal messages for storage
     internalMessages[internalMessages.length - 2].feedback = feedback; // Assuming the second last message is always the user's
