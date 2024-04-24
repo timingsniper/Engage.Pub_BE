@@ -25,6 +25,25 @@ const openai = new OpenAI({
 
 const upload = multer();
 
+router.get("/myScenarios", isLoggedIn, async (req, res) => {
+  const userId = req.user.id;
+  console.log(userId);
+  try {
+    let scenarios = await Scenario.findAll({
+      where: { authorId: userId },
+      order: [["id", "DESC"]],
+    });
+    return res.status(200).json({
+      scenarios,
+    });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while fetching scenarios." });
+  }
+});
+
 // Returns all scenario, login not required
 router.get("/:pageId", async (req, res) => {
   let { pageId } = req.params;
@@ -55,26 +74,6 @@ router.get("/:pageId", async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-  }
-});
-
-router.get("/myScenarios", isLoggedIn, async (req, res) => {
-  const userId = req.user.id;
-  console.log(userId);
-  try {
-    let scenarios = await Scenario.findAll({
-      where: { authorId: userId },
-
-      order: [["id", "DESC"]],
-    });
-    return res.status(200).json({
-      scenarios,
-    });
-  } catch (error) {
-    console.error(error);
-    res
-      .status(500)
-      .json({ error: "An error occurred while fetching scenarios." });
   }
 });
 
@@ -189,6 +188,100 @@ router.post("/", isLoggedIn, upload.none(), async (req, res) => {
     });
   } catch (error) {
     console.error("Failed to create scenario:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Update an existing scenario
+router.put("/:scenarioId", isLoggedIn, upload.none(), async (req, res) => {
+  const { scenarioId } = req.params;
+  const { title, settings, aiSetting, mission, startingMessage, imageUrl } =
+    req.body;
+
+  try {
+    // Validate input
+    if (
+      !title ||
+      !settings ||
+      !aiSetting ||
+      !mission ||
+      !startingMessage ||
+      !imageUrl
+    ) {
+      return res.status(400).json({ message: "All fields must be filled" });
+    }
+
+    // Find the scenario
+    const scenario = await Scenario.findByPk(scenarioId);
+    if (!scenario) {
+      return res.status(404).json({ message: "Scenario not found" });
+    }
+
+    // Download and process image if changed
+    if (imageUrl !== scenario.imgSource) {
+      console.log("Downloading and processing image...");
+      const response = await axios({
+        method: "GET",
+        url: imageUrl,
+        responseType: "arraybuffer",
+      });
+      const imageBuffer = Buffer.from(response.data, "binary");
+
+      console.log("Compressing image...");
+      const processedImage = await sharp(imageBuffer)
+        .resize(300, 300)
+        .jpeg({ quality: 90 })
+        .toBuffer();
+
+      console.log("Uploading to S3...");
+      const s3Response = await s3
+        .upload({
+          Bucket: process.env.S3_BUCKET_NAME,
+          Key: `scenarios/${Date.now()}_compressed.jpg`, // Unique file name
+          Body: processedImage,
+          ContentType: "image/jpeg",
+        })
+        .promise();
+
+      scenario.imgSource = s3Response.Location;
+    }
+
+    // Update scenario
+    scenario.title = title;
+    scenario.settings = settings;
+    scenario.aiSetting = aiSetting;
+    scenario.mission = mission;
+    scenario.startingMessage = startingMessage;
+
+    await scenario.save();
+
+    return res.status(200).json({
+      message: "Scenario updated successfully",
+      scenario,
+    });
+  } catch (error) {
+    console.error("Failed to update scenario:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Delete an existing scenario
+router.delete("/:scenarioId", isLoggedIn, async (req, res) => {
+  const { scenarioId } = req.params;
+
+  try {
+    // Find the scenario
+    const scenario = await Scenario.findByPk(scenarioId);
+    if (!scenario) {
+      return res.status(404).json({ message: "Scenario not found" });
+    }
+
+    // Delete the scenario
+    await scenario.destroy();
+
+    return res.status(200).json({ message: "Scenario deleted successfully" });
+  } catch (error) {
+    console.error("Failed to delete scenario:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 });

@@ -38,6 +38,11 @@ module.exports = (sequelize, DataTypes) => {
       collate: "utf8_general_ci",
     }
   );
-  Scenario.associate = (db) => {};
+  Scenario.associate = (models) => {
+    Scenario.hasMany(models.Conversation, {
+      foreignKey: "scenarioId",
+      as: "Conversations",
+    });
+  };
   return Scenario;
 };
