@@ -94,10 +94,32 @@ router.get("/", isLoggedIn, async (req, res) => {
     });
 
     return res.status(200).json({
-      data: messages,
+      messages,
     });
   } catch (error) {
     console.error("Failed to fetch messages:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+});
+
+router.delete("/:messageId", isLoggedIn, async (req, res) => {
+  const { messageId } = req.params;
+
+  try {
+    // Find the message
+    const message = await Message.findByPk(messageId);
+    if (!message) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+
+    // Delete the message
+    await message.destroy();
+    return res.status(200).json({ message: "Message deleted successfully" });
+  } catch (error) {
+    console.error("Failed to delete message:", error);
     return res.status(500).json({
       message: "Internal server error",
       error: error.message,
