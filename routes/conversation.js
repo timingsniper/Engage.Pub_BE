@@ -151,6 +151,7 @@ router.post("/:scenarioId", isLoggedIn, async (req, res) => {
       role: "assistant",
       content: aiResponse,
       translation: translation,
+      saved: false,
     });
 
     // Add feedback to the last user message in internal messages for storage

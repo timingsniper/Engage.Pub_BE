@@ -9,6 +9,7 @@ const sequelize = new Sequelize(config.database, config.username, config.passwor
 db.User = require('./user')(sequelize, Sequelize);
 db.Conversation = require('./conversation')(sequelize, Sequelize);
 db.Scenario = require('./scenario')(sequelize, Sequelize);
+db.Message = require('./message')(sequelize, Sequelize);
 
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {

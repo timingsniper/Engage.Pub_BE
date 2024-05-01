@@ -64,8 +64,6 @@ router.get("/:pageId", async (req, res) => {
       limit: limit,
       offset: offset,
       order: [["id", "DESC"]],
-      limit: 100,
-      offset: 0,
     });
     const nextPage = pageId < totalPages ? parseInt(pageId) + 1 : null;
     return res.status(200).json({
