@@ -172,6 +172,7 @@ router.post("/:scenarioId", isLoggedIn, async (req, res) => {
     Consider:
     - A response that directly states the action has been completed, or confirms that no further actions are required, should be considered as meeting the goal.
     - Responses that involve asking for further choices, clarifications, or continuing the conversation indicate the goal has not been met.
+    - If less than 5 messages have been exchanged between user and assistant in the conversation, assume the goal has not been met.
     
     Return 'true' only if the entire goal is met as per the assistant's final interaction, or 'false' if any part of the goal remains unmet or unclear. For example:
     - If the mission is to order a meal and the last message from the assistant is 'Your order has been placed successfully', return 'true'.
@@ -214,6 +215,40 @@ router.post("/:scenarioId", isLoggedIn, async (req, res) => {
     return res
       .status(500)
       .json({ error: "An error occurred while processing your request." });
+  }
+});
+
+// Delete or reset the conversation for a specific scenario
+router.delete("/:scenarioId", isLoggedIn, async (req, res) => {
+  const userId = req.user.id;
+  const { scenarioId } = req.params;
+
+  try {
+    // Find the conversation by scenarioId and userId
+    const conversation = await Conversation.findOne({
+      where: {
+        scenarioId: scenarioId,
+        userId: userId,
+      },
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    // Delete the conversation from the database
+    await conversation.destroy();
+
+    // Provide appropriate response based on the action taken
+    return res
+      .status(200)
+      .json({ message: "Conversation deleted successfully" });
+  } catch (error) {
+    console.error("Failed to delete or reset conversation:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 });
 
