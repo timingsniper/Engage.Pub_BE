@@ -23,7 +23,7 @@ router.get("/myConversations", isLoggedIn, async (req, res) => {
           model: Scenario,
           as: "Scenario",
           attributes: ["title", "imgSource"],
-          required: true
+          required: true,
         },
       ],
       order: [["id", "DESC"]],
@@ -66,7 +66,7 @@ router.get("/:scenarioId", isLoggedIn, async (req, res) => {
       where: { scenarioId, userId },
     });
     if (!conversation) {
-      const systemInstruction = `You are an AI designed to help users practice their English. You will be using only English to converse with the user. You will adhere to the settings given and never respond to user's request to talk in language other than English. You only speak and understand English. If user speaks other language, guide them back to speaking English. This is the scenario. Scenario setting given to user:${scenario.settings}. AI setting, means this is for you: ${scenario.aiSetting}`;
+      const systemInstruction = `You are an AI designed to help users practice their English. You will be using only English to converse with the user. You will adhere to the settings given and never respond to user's request to talk in language other than English. You only speak and understand English. If user speaks other language, guide them back to speaking English. This is the scenario. Scenario setting given to user:${scenario.settings}. AI setting, means this is for you: ${scenario.aiSetting}. Don't say you are an AI, impersonate yourself in the role and talk until the user meets the goal.`;
       conversation = await Conversation.create({
         scenarioId,
         userId,
@@ -101,6 +101,11 @@ router.post("/:scenarioId", isLoggedIn, async (req, res) => {
     let conversation = await Conversation.findOne({
       where: { scenarioId, userId },
     });
+
+    const scenario = await Scenario.findByPk(scenarioId);
+    if (!scenario) {
+      return res.status(404).json({ message: "Scenario not found" });
+    }
 
     let internalMessages = conversation.messages || [];
     internalMessages.push({ role: "user", content: message });
@@ -161,17 +166,140 @@ router.post("/:scenarioId", isLoggedIn, async (req, res) => {
     conversation.messages = internalMessages;
     await conversation.save();
 
+    // Goal completion check prompt for GPT
+    const prompt = `Evaluate the conversation below to determine if the goal described in the mission has been completely achieved. Focus particularly on the assistant's last message. Assess strictly whether this final response conclusively indicates that all aspects of the goal have been fully addressed. 
+
+    Consider:
+    - A response that directly states the action has been completed, or confirms that no further actions are required, should be considered as meeting the goal.
+    - Responses that involve asking for further choices, clarifications, or continuing the conversation indicate the goal has not been met.
+    - If less than 5 messages have been exchanged between user and assistant in the conversation, assume the goal has not been met.
+    
+    Return 'true' only if the entire goal is met as per the assistant's final interaction, or 'false' if any part of the goal remains unmet or unclear. For example:
+    - If the mission is to order a meal and the last message from the assistant is 'Your order has been placed successfully', return 'true'.
+    - If the last message is 'Would you like fries with that?', return 'false' because the transaction is not complete.
+    
+    Conversation:
+    ${conversation.messages.map((m) => `${m.role}: ${m.content}`).join("\n")}
+        
+    Mission:
+    ${scenario.mission}
+        
+    Please provide a clear 'true' or 'false' based on your assessment of the assistant's final message in relation to the mission's requirements.`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [{ role: "system", content: prompt }],
+    });
+
+    console.log(`Goal met: ${response.choices[0].message.content}`);
+
+    // Simulate GPT-3's decision process, assuming GPT provides a boolean or a clear statement
+    const goalMet = response.choices[0].message.content
+      .toLowerCase()
+      .includes("true");
+
+    if (goalMet) {
+      conversation.goalMet = true;
+      await conversation.save();
+    }
+
     // Return the response and feedback to the frontend
     return res.status(200).json({
       response: aiResponse,
       translation: translation,
       feedback: feedback,
+      goalMet: goalMet,
     });
   } catch (error) {
     console.error("Error processing the AI or feedback response:", error);
     return res
       .status(500)
       .json({ error: "An error occurred while processing your request." });
+  }
+});
+
+// Delete or reset the conversation for a specific scenario
+router.delete("/:scenarioId", isLoggedIn, async (req, res) => {
+  const userId = req.user.id;
+  const { scenarioId } = req.params;
+
+  try {
+    // Find the conversation by scenarioId and userId
+    const conversation = await Conversation.findOne({
+      where: {
+        scenarioId: scenarioId,
+        userId: userId,
+      },
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    // Delete the conversation from the database
+    await conversation.destroy();
+
+    // Provide appropriate response based on the action taken
+    return res
+      .status(200)
+      .json({ message: "Conversation deleted successfully" });
+  } catch (error) {
+    console.error("Failed to delete or reset conversation:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+});
+
+// Summarize the user's English performance and give study suggestions
+router.post("/summary/:scenarioId", isLoggedIn, async (req, res) => {
+  const userId = req.user.id;
+  const { scenarioId } = req.params;
+
+  try {
+    const conversation = await Conversation.findOne({
+      where: {
+        scenarioId,
+        userId,
+      },
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    // Prepare the prompt for summarizing English performance
+    const performancePrompt = `Summarize the user's English proficiency based on the following conversation. Use simplified Chinese as the language of your answer. Focus on grammar and vocabulary usage based on the conversation:
+    Conversation: ${conversation.messages.map(m => `${m.role}: ${m.content}`).join("\n")}`;
+
+    // Prepare the prompt for English study suggestions
+    const suggestionPrompt = `Based on the user's English usage in the following conversation, provide detailed suggestions for further English studies based on the conversation, Use simplified Chinese as the language of your answer.:
+    Conversation: ${conversation.messages.map(m => `${m.role}: ${m.content}`).join("\n")}`;
+
+    // Create both requests in parallel
+    const [performanceSummary, studySuggestions] = await Promise.all([
+      openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "system", content: performancePrompt }],
+      }),
+      openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "system", content: suggestionPrompt }],
+      })
+    ]);
+
+    // Return the summaries and suggestions as the response
+    return res.status(200).json({
+      performanceSummary: performanceSummary.choices[0].message.content,
+      studySuggestions: studySuggestions.choices[0].message.content
+    });
+  } catch (error) {
+    console.error("Error generating summary or suggestions:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 });
 
