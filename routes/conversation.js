@@ -252,4 +252,55 @@ router.delete("/:scenarioId", isLoggedIn, async (req, res) => {
   }
 });
 
+// Summarize the user's English performance and give study suggestions
+router.post("/summary/:scenarioId", isLoggedIn, async (req, res) => {
+  const userId = req.user.id;
+  const { scenarioId } = req.params;
+
+  try {
+    const conversation = await Conversation.findOne({
+      where: {
+        scenarioId,
+        userId,
+      },
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    // Prepare the prompt for summarizing English performance
+    const performancePrompt = `Summarize the user's English proficiency based on the following conversation. Use simplified Chinese as the language of your answer. Focus on grammar and vocabulary usage based on the conversation:
+    Conversation: ${conversation.messages.map(m => `${m.role}: ${m.content}`).join("\n")}`;
+
+    // Prepare the prompt for English study suggestions
+    const suggestionPrompt = `Based on the user's English usage in the following conversation, provide detailed suggestions for further English studies based on the conversation, Use simplified Chinese as the language of your answer.:
+    Conversation: ${conversation.messages.map(m => `${m.role}: ${m.content}`).join("\n")}`;
+
+    // Create both requests in parallel
+    const [performanceSummary, studySuggestions] = await Promise.all([
+      openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "system", content: performancePrompt }],
+      }),
+      openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "system", content: suggestionPrompt }],
+      })
+    ]);
+
+    // Return the summaries and suggestions as the response
+    return res.status(200).json({
+      performanceSummary: performanceSummary.choices[0].message.content,
+      studySuggestions: studySuggestions.choices[0].message.content
+    });
+  } catch (error) {
+    console.error("Error generating summary or suggestions:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;
