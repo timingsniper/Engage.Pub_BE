@@ -10,6 +10,7 @@ db.User = require('./user')(sequelize, Sequelize);
 db.Conversation = require('./conversation')(sequelize, Sequelize);
 db.Scenario = require('./scenario')(sequelize, Sequelize);
 db.Message = require('./message')(sequelize, Sequelize);
+db.SharedConversation = require('./sharedConversation')(sequelize, Sequelize);
 
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {

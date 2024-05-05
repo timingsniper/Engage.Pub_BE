@@ -2,8 +2,9 @@ const express = require("express");
 const router = express.Router();
 const bodyParser = require("body-parser");
 const { OpenAI } = require("openai");
-const { Conversation, Scenario } = require("../models");
+const { Conversation, Scenario, SharedConversation } = require("../models");
 const { isLoggedIn } = require("./middlewares");
+const { Sequelize, DataTypes } = require("sequelize");
 
 require("dotenv").config();
 const app = express();
@@ -271,11 +272,15 @@ router.post("/summary/:scenarioId", isLoggedIn, async (req, res) => {
 
     // Prepare the prompt for summarizing English performance
     const performancePrompt = `Summarize the user's English proficiency based on the following conversation. Use simplified Chinese as the language of your answer. Focus on grammar and vocabulary usage based on the conversation:
-    Conversation: ${conversation.messages.map(m => `${m.role}: ${m.content}`).join("\n")}`;
+    Conversation: ${conversation.messages
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n")}`;
 
     // Prepare the prompt for English study suggestions
     const suggestionPrompt = `Based on the user's English usage in the following conversation, provide detailed suggestions for further English studies based on the conversation, Use simplified Chinese as the language of your answer.:
-    Conversation: ${conversation.messages.map(m => `${m.role}: ${m.content}`).join("\n")}`;
+    Conversation: ${conversation.messages
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n")}`;
 
     // Create both requests in parallel
     const [performanceSummary, studySuggestions] = await Promise.all([
@@ -286,16 +291,153 @@ router.post("/summary/:scenarioId", isLoggedIn, async (req, res) => {
       openai.chat.completions.create({
         model: "gpt-3.5-turbo",
         messages: [{ role: "system", content: suggestionPrompt }],
-      })
+      }),
     ]);
 
     // Return the summaries and suggestions as the response
     return res.status(200).json({
       performanceSummary: performanceSummary.choices[0].message.content,
-      studySuggestions: studySuggestions.choices[0].message.content
+      studySuggestions: studySuggestions.choices[0].message.content,
     });
   } catch (error) {
     console.error("Error generating summary or suggestions:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+});
+
+// Endpoint to save conversation to sharedConversation table
+router.post("/shared/:scenarioId", isLoggedIn, async (req, res) => {
+  const userId = req.user.id;
+  const { scenarioId } = req.params;
+  const { title, nickname } = req.body;
+
+  try {
+    // Retrieve the active conversation for this user and scenario
+    const conversation = await Conversation.findOne({
+      where: { scenarioId, userId },
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    // Create a new shared conversation entry with the existing conversation data
+    await SharedConversation.create({
+      scenarioId: conversation.scenarioId,
+      userId: conversation.userId,
+      title: title,
+      messages: conversation.messages,
+      nickname: nickname,
+    });
+
+    // Respond with success message
+    return res.status(201).json({
+      message: "Conversation shared successfully",
+    });
+  } catch (error) {
+    console.error("Failed to share conversation:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+});
+
+// Endpoint to fetch all shared conversations for a specific scenario
+router.get("/shared/:scenarioId", isLoggedIn, async (req, res) => {
+  const userId = req.user.id;
+  console.log(userId);
+  const { scenarioId } = req.params;
+
+  try {
+    // Fetch all shared conversations that match the scenarioId
+    const sharedConversations = await SharedConversation.findAll({
+      where: { scenarioId },
+      order: [["createdAt", "DESC"]],
+      attributes: [
+        "id",
+        "scenarioId",
+        "userId",
+        "nickname",
+        "title",
+        [Sequelize.literal(`userId = '${userId}'`), "mine"],
+      ],
+    });
+
+    if (sharedConversations.length === 0) {
+      return res.status(200).json({});
+    }
+
+    // Modify each conversation object to include the 'mine' boolean
+    const result = sharedConversations.map((conversation) => {
+      return {
+        ...conversation.toJSON(),
+        mine: conversation.userId === userId.toString(), // Add 'mine' field comparing userIds
+      };
+    });
+
+    // Respond with the fetched conversations
+    return res.status(200).json({
+      sharedConversations: result,
+    });
+  } catch (error) {
+    console.error("Failed to fetch shared conversations:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+});
+
+// Get selected shared conversation history
+router.get("/shared/view/:convId", isLoggedIn, async (req, res) => {
+  const { convId } = req.params;
+
+  try {
+    // Look for the specified conversation
+    const sharedConversation = await SharedConversation.findByPk(convId);
+    if (!sharedConversation) {
+      return res.status(404).json({ error: "Conversation not found" });
+    }
+
+    return res.status(200).send(sharedConversation.messages);
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+// DELETE endpoint to delete a specific shared conversation
+router.delete("/shared/:convoId", isLoggedIn, async (req, res) => {
+  const userId = req.user.id;
+  const { convoId } = req.params;
+
+  try {
+    // Find the shared conversation by ID
+    const conversation = await SharedConversation.findByPk(convoId);
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Shared conversation not found" });
+    }
+
+    // Check if the current user is the owner of the conversation
+    if (conversation.userId !== userId.toString()) {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to delete this conversation" });
+    }
+
+    // Delete the shared conversation
+    await conversation.destroy();
+
+    // Respond with success message
+    return res
+      .status(200)
+      .json({ message: "Shared conversation deleted successfully" });
+  } catch (error) {
+    console.error("Failed to delete shared conversation:", error);
     return res.status(500).json({
       message: "Internal server error",
       error: error.message,
