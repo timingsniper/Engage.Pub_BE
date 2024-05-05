@@ -402,10 +402,46 @@ router.get("/shared/view/:convId", isLoggedIn, async (req, res) => {
     if (!sharedConversation) {
       return res.status(404).json({ error: "Conversation not found" });
     }
-    
+
     return res.status(200).send(sharedConversation.messages);
   } catch (error) {
     console.log(error);
+  }
+});
+
+// DELETE endpoint to delete a specific shared conversation
+router.delete("/shared/:convoId", isLoggedIn, async (req, res) => {
+  const userId = req.user.id;
+  const { convoId } = req.params;
+
+  try {
+    // Find the shared conversation by ID
+    const conversation = await SharedConversation.findByPk(convoId);
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Shared conversation not found" });
+    }
+
+    // Check if the current user is the owner of the conversation
+    if (conversation.userId !== userId.toString()) {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to delete this conversation" });
+    }
+
+    // Delete the shared conversation
+    await conversation.destroy();
+
+    // Respond with success message
+    return res
+      .status(200)
+      .json({ message: "Shared conversation deleted successfully" });
+  } catch (error) {
+    console.error("Failed to delete shared conversation:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 });
 
