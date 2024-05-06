@@ -4,7 +4,10 @@ const bodyParser = require("body-parser");
 const { OpenAI } = require("openai");
 const { Conversation, Scenario, SharedConversation } = require("../models");
 const { isLoggedIn } = require("./middlewares");
+const multer = require("multer");
 const { Sequelize, DataTypes } = require("sequelize");
+const { toFile } = require("openai/uploads");
+const upload = multer({ storage: multer.memoryStorage() });
 
 require("dotenv").config();
 const app = express();
@@ -439,6 +442,62 @@ router.delete("/shared/:convoId", isLoggedIn, async (req, res) => {
   } catch (error) {
     console.error("Failed to delete shared conversation:", error);
     return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+});
+
+// Endpoint to convert text to speech
+router.post("/read/tts", async (req, res) => {
+  const { text } = req.body;
+
+  if (!text) {
+    return res.status(400).json({ error: "Text is required" });
+  }
+
+  try {
+    const audioResponse = await openai.audio.speech.create({
+      model: "tts-1",
+      input: text,
+      voice: "alloy",
+      outputFormat: "mp3",
+    });
+
+    const buffer = Buffer.from(await audioResponse.arrayBuffer());
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.send(buffer);
+  } catch (error) {
+    console.error("Failed to generate speech:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+});
+
+router.post("/speak/vtt", upload.single("audio"), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: "No audio file uploaded" });
+  }
+
+  try {
+    // Convert buffer to file with a filename and content type
+    const file = await toFile(req.file.buffer, "audio-file.mp3");
+
+    // Send this file to OpenAI's speech-to-text API
+    const response = await openai.audio.transcriptions.create({
+      model: "whisper-1",
+      file: file,
+      response_format: "text",
+    });
+
+    res.status(200).json({
+      text: response,
+    });
+  } catch (error) {
+    console.error("Failed to convert speech to text:", error);
+    res.status(500).json({
       message: "Internal server error",
       error: error.message,
     });
