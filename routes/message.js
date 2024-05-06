@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const bodyParser = require("body-parser");
-const { Message, Conversation } = require("../models");
+const { Message, Conversation, Vocab } = require("../models");
 const { isLoggedIn } = require("./middlewares");
 
 require("dotenv").config();
@@ -98,6 +98,51 @@ router.get("/", isLoggedIn, async (req, res) => {
     });
   } catch (error) {
     console.error("Failed to fetch messages:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+});
+
+router.get("/vocab", isLoggedIn, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    // Find all saved vocabs for the user
+    const vocabs = await Vocab.findAll({
+      where: {
+        userId: userId,
+      },
+    });
+
+    return res.status(200).json({
+      vocabs,
+    });
+  } catch (error) {
+    console.error("Failed to fetch vocabs:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+});
+
+router.delete("/vocab/:vocabId", isLoggedIn, async (req, res) => {
+  const { vocabId } = req.params;
+
+  try {
+    // Find the vocabulary
+    const vocab = await Vocab.findByPk(vocabId);
+    if (!vocab) {
+      return res.status(404).json({ message: "Vocab not found" });
+    }
+
+    // Delete the vocabulary
+    await vocab.destroy();
+    return res.status(200).json({ message: "Vocabulary deleted successfully" });
+  } catch (error) {
+    console.error("Failed to delete vocabulary:", error);
     return res.status(500).json({
       message: "Internal server error",
       error: error.message,
