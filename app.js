@@ -15,6 +15,7 @@ const userRouter = require("./routes/user");
 const conversationRouter = require("./routes/conversation");
 const scenarioRouter = require("./routes/scenario");
 const messageRouter = require("./routes/message");
+const recommendationRouter = require("./routes/recommendation");
 
 dotenv.config();
 const app = express();
@@ -59,6 +60,7 @@ app.use("/user", userRouter);
 app.use("/conversation", conversationRouter);
 app.use("/scenario", scenarioRouter);
 app.use("/message", messageRouter);
+app.use("/recommendation", recommendationRouter);
 
 // Open server at port 5000
 app.listen(5000, () => {
