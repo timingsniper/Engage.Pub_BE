@@ -5,6 +5,7 @@ const { OpenAI } = require("openai");
 const { Conversation, Scenario, SharedConversation } = require("../models");
 const { isLoggedIn } = require("./middlewares");
 const { Sequelize, DataTypes } = require("sequelize");
+const path = require("path");
 
 require("dotenv").config();
 const app = express();
@@ -438,6 +439,34 @@ router.delete("/shared/:convoId", isLoggedIn, async (req, res) => {
       .json({ message: "Shared conversation deleted successfully" });
   } catch (error) {
     console.error("Failed to delete shared conversation:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+});
+
+// Endpoint to convert text to speech
+router.post("/read/tts", async (req, res) => {
+  const { text } = req.body;
+
+  if (!text) {
+    return res.status(400).json({ error: "Text is required" });
+  }
+
+  try {
+    const audioResponse = await openai.audio.speech.create({
+      model: "tts-1",
+      input: text,
+      voice: "alloy",
+      outputFormat: "mp3",
+    });
+
+    const buffer = Buffer.from(await audioResponse.arrayBuffer());
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.send(buffer);
+  } catch (error) {
+    console.error("Failed to generate speech:", error);
     return res.status(500).json({
       message: "Internal server error",
       error: error.message,
