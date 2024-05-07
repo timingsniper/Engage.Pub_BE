@@ -74,9 +74,11 @@ router.get("/vocab/:scenarioId", isLoggedIn, async (req, res) => {
     });
     console.log(response.choices[0].message.content);
     const vocabList = response.choices[0].message.content
-      .split(",")
-      .map((word) => word.trim())
-      .slice(0, 3);
+      .replace(/[\d.]/g, "") // Remove numbers and periods which may be used in listing
+      .split(/,|\n/) // Split by commas or new lines
+      .map((word) => word.trim()) // Trim spaces
+      .filter((word) => word.length > 0) // Remove empty entries
+      .slice(0, 3); // Ensure only three words are processed
 
     // Translate each vocabulary word
     const translations = await Promise.all(

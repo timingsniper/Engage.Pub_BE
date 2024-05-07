@@ -25,6 +25,26 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+// Get user level
+router.get("/level", async (req, res, next) => {
+  try {
+    if (req.user) {
+      const userInfo = await User.findOne({
+        where: { id: req.user.id },
+        attributes: ["level"],
+      });
+      res.status(200).json(userInfo);
+    } else {
+      res.status(200).json(null);
+    }
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
+  }
+});
+
 // Signup
 router.post("/", isNotLoggedIn, async (req, res, next) => {
   try {

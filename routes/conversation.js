@@ -2,7 +2,12 @@ const express = require("express");
 const router = express.Router();
 const bodyParser = require("body-parser");
 const { OpenAI } = require("openai");
-const { Conversation, Scenario, SharedConversation } = require("../models");
+const {
+  Conversation,
+  Scenario,
+  SharedConversation,
+  User,
+} = require("../models");
 const { isLoggedIn } = require("./middlewares");
 const multer = require("multer");
 const { Sequelize, DataTypes } = require("sequelize");
@@ -16,6 +21,9 @@ app.use(bodyParser.json());
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+const levelRubric =
+  "Level 1: Beginner. {Vocabulary: Basic, everyday subjects. Grammar: Simple tenses, frequent errors. Communication: Simple conversations on familiar topics. Writing: Simple sentences, short messages.}    Level 2: Intermediate    {Vocabulary: Broader range, some hesitation.    Grammar: Variety of tenses, more complex sentences.    Communication: Handles travel, describes experiences.    Listening/Reading: Main points of clear speech, familiar topics.    Writing: Connected texts on familiar subjects.}    Level 3: Advanced    {Vocabulary: Rich, includes idiomatic expressions.    Grammar: Good control, complex structures.    Communication: Flexible use for social, academic, professional purposes. Listening/Reading: Understands extended speech, complex arguments.}";
 
 router.get("/myConversations", isLoggedIn, async (req, res) => {
   const userId = req.user.id;
@@ -69,8 +77,19 @@ router.get("/:scenarioId", isLoggedIn, async (req, res) => {
     let conversation = await Conversation.findOne({
       where: { scenarioId, userId },
     });
+    const userInfo = await User.findOne({
+      where: { id: userId },
+      attributes: ["level"],
+    });
     if (!conversation) {
-      const systemInstruction = `You are an AI designed to help users practice their English. You will be using only English to converse with the user. You will adhere to the settings given and never respond to user's request to talk in language other than English. You only speak and understand English. If user speaks other language, guide them back to speaking English. This is the scenario. Scenario setting given to user:${scenario.settings}. AI setting, means this is for you: ${scenario.aiSetting}. Don't say you are an AI, impersonate yourself in the role and talk until the user meets the goal.`;
+      const systemInstruction = `You are an AI designed to help users practice their English. You will be using only English to converse with the user. You will adhere to the settings given and never respond to user's request to talk in language other than English. You only speak and understand English. If user speaks other language, guide them back to speaking English. This is the scenario. Scenario setting given to user:${
+        scenario.settings
+      }. AI setting, means this is for you: ${
+        scenario.aiSetting
+      }. Consider the following rubric and user's level to craft your answer based on user's English level. Following is the rubric: ${levelRubric}. User's level is: Level ${
+        userInfo.level ? userInfo.level : 1
+      }. Don't say you are an AI, impersonate yourself in the role and talk until the user meets the goal.`;
+      console.log(systemInstruction);
       conversation = await Conversation.create({
         scenarioId,
         userId,
@@ -273,34 +292,59 @@ router.post("/summary/:scenarioId", isLoggedIn, async (req, res) => {
       return res.status(404).json({ message: "Conversation not found" });
     }
 
+    const userInfo = await User.findOne({
+      where: { id: userId },
+    });
+
     // Prepare the prompt for summarizing English performance
     const performancePrompt = `Summarize the user's English proficiency based on the following conversation. Use simplified Chinese as the language of your answer. Focus on grammar and vocabulary usage based on the conversation:
     Conversation: ${conversation.messages
+      .filter((m, index) => index !== 0 || m.role !== "system") // Skip the first system message
       .map((m) => `${m.role}: ${m.content}`)
       .join("\n")}`;
 
     // Prepare the prompt for English study suggestions
     const suggestionPrompt = `Based on the user's English usage in the following conversation, provide detailed suggestions for further English studies based on the conversation, Use simplified Chinese as the language of your answer.:
     Conversation: ${conversation.messages
+      .filter((m, index) => index !== 0 || m.role !== "system") // Skip the first system message
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n")}`;
+
+    const levelPrompt = `Based on the user's English usage in the following conversation, provide a level assessment for the user. Rubric is as follows:${levelRubric}. Return a single number, 1, 2 or 3. Conversation: ${conversation.messages
+      .filter((m, index) => index !== 0 || m.role !== "system") // Skip the first system message
       .map((m) => `${m.role}: ${m.content}`)
       .join("\n")}`;
 
     // Create both requests in parallel
-    const [performanceSummary, studySuggestions] = await Promise.all([
-      openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [{ role: "system", content: performancePrompt }],
-      }),
-      openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [{ role: "system", content: suggestionPrompt }],
-      }),
-    ]);
+    const [performanceSummary, studySuggestions, levelEvaluation] =
+      await Promise.all([
+        openai.chat.completions.create({
+          model: "gpt-3.5-turbo",
+          messages: [{ role: "system", content: performancePrompt }],
+        }),
+        openai.chat.completions.create({
+          model: "gpt-3.5-turbo",
+          messages: [{ role: "system", content: suggestionPrompt }],
+        }),
+        openai.chat.completions.create({
+          model: "gpt-3.5-turbo",
+          messages: [{ role: "system", content: levelPrompt }],
+        }),
+      ]);
+
+    const levelText = levelEvaluation.choices[0].message.content;
+    const levelMatch = levelText.match(/\b[123]\b/); // Regular expression to find a single digit 1, 2, or 3
+    const level = levelMatch ? parseInt(levelMatch[0], 10) : null; // Parse the matched number or default to null if no match found
+
+    userInfo.level = level;
+
+    await userInfo.save();
 
     // Return the summaries and suggestions as the response
     return res.status(200).json({
       performanceSummary: performanceSummary.choices[0].message.content,
       studySuggestions: studySuggestions.choices[0].message.content,
+      level,
     });
   } catch (error) {
     console.error("Error generating summary or suggestions:", error);
@@ -378,7 +422,7 @@ router.get("/shared/:scenarioId", isLoggedIn, async (req, res) => {
     const result = sharedConversations.map((conversation) => {
       return {
         ...conversation.toJSON(),
-        mine: conversation.userId === userId.toString(), // Add 'mine' field comparing userIds
+        mine: conversation.userId === userId, // Add 'mine' field comparing userIds
       };
     });
 
@@ -426,7 +470,7 @@ router.delete("/shared/:convoId", isLoggedIn, async (req, res) => {
     }
 
     // Check if the current user is the owner of the conversation
-    if (conversation.userId !== userId.toString()) {
+    if (conversation.userId !== userId) {
       return res
         .status(403)
         .json({ message: "Unauthorized to delete this conversation" });

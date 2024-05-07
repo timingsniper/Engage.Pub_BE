@@ -7,10 +7,18 @@ module.exports = (sequelize, DataTypes) => {
       scenarioId: {
         type: DataTypes.INTEGER,
         allowNull: false,
+        references: {
+          model: 'Scenarios', 
+          key: 'id',
+        }
       },
       userId: {
-        type: DataTypes.STRING,
+        type: DataTypes.INTEGER,
         allowNull: false,
+        references: {
+          model: 'Users', 
+          key: 'id',
+        }
       },
       messages: {
         type: DataTypes.TEXT,
