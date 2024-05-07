@@ -23,7 +23,7 @@ const openai = new OpenAI({
 });
 
 const levelRubric =
-  "Level 1: Beginner. Vocabulary: Basic, everyday subjects. Grammar: Simple tenses, frequent errors. Communication: Simple conversations on familiar topics. Writing: Simple sentences, short messages.    Level 2: Intermediate    Vocabulary: Broader range, some hesitation.    Grammar: Variety of tenses, more complex sentences.    Communication: Handles travel, describes experiences.    Listening/Reading: Main points of clear speech, familiar topics.    Writing: Connected texts on familiar subjects.    Level 3: Advanced    Vocabulary: Rich, includes idiomatic expressions.    Grammar: Good control, complex structures.    Communication: Flexible use for social, academic, professional purposes. Listening/Reading: Understands extended speech, complex arguments.";
+  "Level 1: Beginner. {Vocabulary: Basic, everyday subjects. Grammar: Simple tenses, frequent errors. Communication: Simple conversations on familiar topics. Writing: Simple sentences, short messages.}    Level 2: Intermediate    {Vocabulary: Broader range, some hesitation.    Grammar: Variety of tenses, more complex sentences.    Communication: Handles travel, describes experiences.    Listening/Reading: Main points of clear speech, familiar topics.    Writing: Connected texts on familiar subjects.}    Level 3: Advanced    {Vocabulary: Rich, includes idiomatic expressions.    Grammar: Good control, complex structures.    Communication: Flexible use for social, academic, professional purposes. Listening/Reading: Understands extended speech, complex arguments.}";
 
 router.get("/myConversations", isLoggedIn, async (req, res) => {
   const userId = req.user.id;
@@ -422,7 +422,7 @@ router.get("/shared/:scenarioId", isLoggedIn, async (req, res) => {
     const result = sharedConversations.map((conversation) => {
       return {
         ...conversation.toJSON(),
-        mine: conversation.userId === userId.toString(), // Add 'mine' field comparing userIds
+        mine: conversation.userId === userId, // Add 'mine' field comparing userIds
       };
     });
 
@@ -470,7 +470,7 @@ router.delete("/shared/:convoId", isLoggedIn, async (req, res) => {
     }
 
     // Check if the current user is the owner of the conversation
-    if (conversation.userId !== userId.toString()) {
+    if (conversation.userId !== userId) {
       return res
         .status(403)
         .json({ message: "Unauthorized to delete this conversation" });

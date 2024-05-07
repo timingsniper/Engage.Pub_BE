@@ -11,12 +11,20 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       userId: {
-        type: DataTypes.STRING,
+        type: DataTypes.INTEGER,
         allowNull: false,
+        references: {
+          model: 'Users', 
+          key: 'id',
+        }
       },
       scenarioId: {
         type: DataTypes.INTEGER,
         allowNull: false,
+        references: {
+          model: 'Scenarios', 
+          key: 'id',
+        }
       },
       content: {
         type: DataTypes.TEXT,

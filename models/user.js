@@ -21,10 +21,6 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: true,
       },
-      common_mistakes: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-      },
     },
     {
       charset: "utf8",

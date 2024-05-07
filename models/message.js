@@ -9,7 +9,11 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false
     },
     userId: {
-      type: DataTypes.STRING,
+      type: DataTypes.INTEGER,
+      references: {
+        model: 'Users', 
+        key: 'id',
+      },
       allowNull: false
     },
     scenarioId: {

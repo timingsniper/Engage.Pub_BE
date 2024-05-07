@@ -5,8 +5,12 @@ module.exports = (sequelize, DataTypes) => {
     "Scenario",
     {
       authorId: {
-        type: DataTypes.STRING,
+        type: DataTypes.INTEGER,
         allowNull: false,
+        references: {
+          model: 'Users', 
+          key: 'id',
+        }
       },
       title: {
         type: DataTypes.STRING,
