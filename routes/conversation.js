@@ -144,7 +144,7 @@ router.post("/:scenarioId", isLoggedIn, async (req, res) => {
         {
           role: "system",
           content:
-            "你是英语学习网站的AI。用中文, 如果用户的英语表达在语法和词语方面上有错误, 给出修改后的英语句子并指出错误之处。If the user's message is perfect, just return '完美'. 记得用中文回答, 限制在100字内回答。",
+            "你是英语学习网站的AI。用中文, 如果用户的英语表达在语法和词语方面上有错误, 给出修改后的英语句子并指出错误之处。If the user's message is perfect, just return '完美'. 记得用中文回答, 限制在100字内回答。如果用户用英语以外的语言, 提醒要用英语。",
         },
         { role: "user", content: message },
       ],
@@ -152,7 +152,8 @@ router.post("/:scenarioId", isLoggedIn, async (req, res) => {
 
     // Call GPT for response using API messages array
     const aiResponsePromise = openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      // model: "gpt-3.5-turbo",
+      model: "ft:gpt-3.5-turbo-0125:personal:conversationmodel:9MFlwZC5",
       messages: apiMessages,
     });
 
