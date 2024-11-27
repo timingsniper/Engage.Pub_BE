@@ -1,7 +1,7 @@
 name: Deploy to EC2
 on:
   push:
-    branches: ["main", "dev", "reboot-main"]
+    branches: ["main", "dev", "main-reboot"]
 
 permissions:
   contents: read
