@@ -64,7 +64,7 @@ jobs:
           -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
           -e AWS_REGION=${{ secrets.AWS_REGION }} \
           -e S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }} \
-          -e OPENAI_API_KEY \
+          -e OPENAI_API_KEY=$(echo $OPENAI_API_KEY) \
           ${{ secrets.DOCKERHUB_USERNAME }}/engagepub-backend
 
       # 5. Clean up old image
